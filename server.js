@@ -6,6 +6,7 @@ const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegStatic = require('ffmpeg-static');
 const ffprobeStatic = require('@ffprobe-installer/ffprobe');
+const ytDlpExec = require('yt-dlp-exec');
 
 // Set ffmpeg paths for bundled binaries
 ffmpeg.setFfmpegPath(ffmpegStatic);
@@ -22,8 +23,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Helper function to validate YouTube URL
 function isValidYouTubeURL(url) {
-  const regex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
-  return regex.test(url);
+  const type = play.yt_validate(url);
+  return type === 'video' || type === 'shorts' || type === 'share';
 }
 
 // API Routes
@@ -39,7 +40,7 @@ app.post('/api/download', async (req, res) => {
       return res.status(400).json({ error: 'Некорректный YouTube URL' });
     }
 
-    const info = await play.video_info(url);
+    const info = await play.video_basic_info(url);
     const title = info.video_details.title;
     
     res.json({
@@ -58,41 +59,59 @@ app.get('/api/download-file', async (req, res) => {
   try {
     const { url, format } = req.query;
     
+    if (!url) {
+      return res.status(400).json({ error: 'URL обязателен' });
+    }
+
     if (!isValidYouTubeURL(url)) {
       return res.status(400).json({ error: 'Некорректный YouTube URL' });
     }
 
-    const info = await play.video_info(url);
+    const info = await play.video_basic_info(url);
     const title = info.video_details.title.replace(/[^\w\s]/gi, '').substring(0, 50);
     
     if (format === 'mp4') {
-      // Get video stream - play-dl provides direct stream access
-      const stream = await play.stream(url, { quality: 'high' });
-      
+      // Use yt-dlp for reliable MP4 download
       res.setHeader('Content-Disposition', `attachment; filename="${title}.mp4"`);
       res.setHeader('Content-Type', 'video/mp4');
       
-      // Pipe the stream directly
-      stream.stream.pipe(res);
+      const ytDlpProcess = ytDlpExec.exec(url, {
+        output: '-',
+        format: 'best[ext=mp4]/best',
+        remuxVideo: 'mp4',
+        addHeader: ['referer:youtube.com', 'user-agent:googlebot']
+      });
+      
+      ytDlpProcess.stdout.pipe(res);
+      
+      ytDlpProcess.on('error', (err) => {
+        console.error('yt-dlp MP4 error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Ошибка при скачивании видео' });
+        }
+      });
       
     } else {
-      // MP3 format - get audio stream and convert with ffmpeg
-      const stream = await play.stream(url, { quality: 'high' });
-      
+      // Use yt-dlp for reliable MP3 download
       res.setHeader('Content-Disposition', `attachment; filename="${title}.mp3"`);
       res.setHeader('Content-Type', 'audio/mpeg');
       
-      ffmpeg(stream.stream)
-        .audioCodec('libmp3lame')
-        .audioBitrate(192)
-        .format('mp3')
-        .on('error', (err) => {
-          console.error('FFmpeg MP3 error:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Ошибка при конвертации аудио в MP3' });
-          }
-        })
-        .pipe(res, { end: true });
+      const ytDlpProcess = ytDlpExec.exec(url, {
+        output: '-',
+        extractAudio: true,
+        audioFormat: 'mp3',
+        audioQuality: '192K',
+        addHeader: ['referer:youtube.com', 'user-agent:googlebot']
+      });
+      
+      ytDlpProcess.stdout.pipe(res);
+      
+      ytDlpProcess.on('error', (err) => {
+        console.error('yt-dlp MP3 error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Ошибка при конвертации аудио в MP3' });
+        }
+      });
     }
     
   } catch (error) {
@@ -113,7 +132,7 @@ app.get('/api/info', async (req, res) => {
       return res.status(400).json({ error: 'Некорректный YouTube URL' });
     }
 
-    const info = await play.video_info(url);
+    const info = await play.video_basic_info(url);
     
     res.json({
       title: info.video_details.title,
