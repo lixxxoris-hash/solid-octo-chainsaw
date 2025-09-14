@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const ytdl = require('ytdl-core');
+const play = require('play-dl');
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegStatic = require('ffmpeg-static');
@@ -20,6 +20,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Helper function to validate YouTube URL
+function isValidYouTubeURL(url) {
+  const regex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
+  return regex.test(url);
+}
+
 // API Routes
 app.post('/api/download', async (req, res) => {
   try {
@@ -29,12 +35,12 @@ app.post('/api/download', async (req, res) => {
       return res.status(400).json({ error: 'URL обязателен' });
     }
 
-    if (!ytdl.validateURL(url)) {
+    if (!isValidYouTubeURL(url)) {
       return res.status(400).json({ error: 'Некорректный YouTube URL' });
     }
 
-    const info = await ytdl.getInfo(url);
-    const title = info.videoDetails.title;
+    const info = await play.video_info(url);
+    const title = info.video_details.title;
     
     res.json({
       success: true,
@@ -52,60 +58,31 @@ app.get('/api/download-file', async (req, res) => {
   try {
     const { url, format } = req.query;
     
-    if (!ytdl.validateURL(url)) {
+    if (!isValidYouTubeURL(url)) {
       return res.status(400).json({ error: 'Некорректный YouTube URL' });
     }
 
-    const info = await ytdl.getInfo(url);
-    const title = info.videoDetails.title.replace(/[^\w\s]/gi, '').substring(0, 50);
+    const info = await play.video_info(url);
+    const title = info.video_details.title.replace(/[^\w\s]/gi, '').substring(0, 50);
     
     if (format === 'mp4') {
-      // Try to get combined H.264/MP4 format first
-      let videoFormat = ytdl.chooseFormat(info.formats, { 
-        quality: 'highest', 
-        filter: format => format.container === 'mp4' && format.hasVideo && format.hasAudio && 
-                          format.videoCodec && format.videoCodec.includes('avc1')
-      });
+      // Get video stream - play-dl provides direct stream access
+      const stream = await play.stream(url, { quality: 'high' });
       
-      if (!videoFormat) {
-        // Fallback: use separate streams with proper transcoding
-        const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'highestaudio' });
-        const videoOnlyFormat = ytdl.chooseFormat(info.formats, { quality: 'highest', filter: 'videoonly' });
-        
-        res.setHeader('Content-Disposition', `attachment; filename="${title}.mp4"`);
-        res.setHeader('Content-Type', 'video/mp4');
-        
-        const command = ffmpeg()
-          .input(ytdl(url, { format: videoOnlyFormat }))
-          .input(ytdl(url, { format: audioFormat }))
-          .videoCodec('libx264')
-          .audioCodec('aac')
-          .outputOptions([
-            '-preset veryfast',
-            '-crf 23',
-            '-f mp4',
-            '-movflags frag_keyframe+empty_moov'
-          ])
-          .on('error', (err) => {
-            console.error('FFmpeg error:', err);
-            if (!res.headersSent) {
-              res.status(500).json({ error: 'Ошибка при конвертации видео' });
-            }
-          })
-          .pipe(res, { end: true });
-      } else {
-        res.setHeader('Content-Disposition', `attachment; filename="${title}.mp4"`);
-        res.setHeader('Content-Type', 'video/mp4');
-        ytdl(url, { format: videoFormat }).pipe(res);
-      }
+      res.setHeader('Content-Disposition', `attachment; filename="${title}.mp4"`);
+      res.setHeader('Content-Type', 'video/mp4');
+      
+      // Pipe the stream directly
+      stream.stream.pipe(res);
+      
     } else {
-      // MP3 format - real conversion using ffmpeg
-      const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'highestaudio', filter: 'audioonly' });
+      // MP3 format - get audio stream and convert with ffmpeg
+      const stream = await play.stream(url, { quality: 'high' });
       
       res.setHeader('Content-Disposition', `attachment; filename="${title}.mp3"`);
       res.setHeader('Content-Type', 'audio/mpeg');
       
-      ffmpeg(ytdl(url, { format: audioFormat }))
+      ffmpeg(stream.stream)
         .audioCodec('libmp3lame')
         .audioBitrate(192)
         .format('mp3')
@@ -132,17 +109,17 @@ app.get('/api/info', async (req, res) => {
       return res.status(400).json({ error: 'URL обязателен' });
     }
 
-    if (!ytdl.validateURL(url)) {
+    if (!isValidYouTubeURL(url)) {
       return res.status(400).json({ error: 'Некорректный YouTube URL' });
     }
 
-    const info = await ytdl.getInfo(url);
+    const info = await play.video_info(url);
     
     res.json({
-      title: info.videoDetails.title,
-      duration: info.videoDetails.lengthSeconds,
-      thumbnail: info.videoDetails.thumbnails[info.videoDetails.thumbnails.length - 1].url,
-      author: info.videoDetails.author.name
+      title: info.video_details.title,
+      duration: info.video_details.durationInSec,
+      thumbnail: info.video_details.thumbnails[info.video_details.thumbnails.length - 1].url,
+      author: info.video_details.channel.name
     });
 
   } catch (error) {
