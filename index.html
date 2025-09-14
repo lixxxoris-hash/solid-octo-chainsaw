@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You2Fetch — YouTube to MP3/MP4 Converter</title>
+    <meta name="description" content="You2Fetch — быстрый конвертер YouTube в MP3 или MP4. Высокое качество, без регистрации, быстро и безопасно.">
+    <meta name="keywords" content="you2fetch, youtube, mp3, mp4, конвертер, скачать, музыка, видео">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    
+    <!-- Meta tags -->
+    <meta name="application-name" content="You2Fetch" />
+    <meta name="theme-color" content="#667eea" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="You2Fetch — YouTube to MP3/MP4 Converter" />
+    <meta property="og:description" content="You2Fetch — быстрый конвертер YouTube в MP3 или MP4. Высокое качество, без регистрации, быстро и безопасно." />
+    <meta property="og:type" content="website" />
+    
+    <style>
+        #root {
+            min-height: 100vh;
+        }
+        
+        /* Loading styles */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: system-ui, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="loading">
+            <div>
+                <h2>🎵 Loading You2Fetch...</h2>
+                <p>Подготавливаем лучший YouTube конвертер</p>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="/src/index.jsx"></script>
+</body>
+</html>
