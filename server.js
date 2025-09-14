@@ -12,7 +12,8 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// Force port 3001 in development, use PORT in production deployment
+const PORT = process.env.REPLIT_DEPLOYMENT ? process.env.PORT : 3001;
 
 // Middleware
 app.use(cors());

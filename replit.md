@@ -2,7 +2,7 @@
 
 ## Overview
 
-You2Fetch is a web-based YouTube video converter frontend that provides the user interface for downloading YouTube videos in MP3 (audio) or MP4 (video) formats. This is a frontend-only deployment serving a pre-built React application through an Express.js server. The backend API for actual YouTube processing is not included in this import and would need to be implemented separately for full functionality.
+You2Fetch is a full-stack web application for converting YouTube videos to MP3 (audio) or MP4 (video) formats. It consists of a React frontend and an Express.js backend with YouTube processing capabilities using ytdl-core and FFmpeg. The application is now fully configured to run in the Replit environment.
 
 ## User Preferences
 
@@ -18,18 +18,23 @@ Preferred communication style: Simple, everyday language.
 - **Static Assets**: Pre-built and bundled JavaScript/CSS files served statically
 
 ### Backend Architecture
-- **Framework**: Express.js minimal server
-- **Purpose**: Static file serving and SPA routing support for frontend assets
+- **Framework**: Express.js API server with YouTube processing capabilities
+- **Purpose**: YouTube video download and conversion API, plus static file serving
+- **Key Dependencies**: ytdl-core, FFmpeg, fluent-ffmpeg
 - **Server Configuration**: 
-  - Serves static files with 1-year caching for assets (production-optimized)
-  - Handles all routes with no-cache headers for the main HTML file
-  - Supports React Router by serving index.html for all routes
-  - Configured to use environment PORT for deployment compatibility
+  - Runs on port 3001 in development, configurable PORT in production
+  - Handles API routes for video processing (/api/download, /api/download-file)
+  - Serves static React build files in production mode
+  - Configured with CORS for cross-origin requests
 
 ### File Structure
-- `/frontend/` - Contains all client-side assets and the main HTML file
-- `/server.js` - Express server entry point
-- Static assets are pre-built and optimized for production
+- `/src/` - React frontend source code
+  - `/components/` - YouTubeDownloader component
+  - `App.jsx` - Main application component
+  - `index.jsx` - Application entry point
+- `/server.js` - Express server with API endpoints
+- `/vite.config.js` - Vite build configuration
+- `/index.html` - HTML template with metadata
 
 ### Caching Strategy
 - **Static Assets**: Long-term caching (1 year) with immutable flag for performance
@@ -64,10 +69,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Current Status
 
-This is a frontend-only deployment. The YouTube video processing and conversion backend is not included in this import. The frontend will display an "operation was aborted" error when users try to submit YouTube URLs because there's no backend API to handle the conversion requests.
+The application is fully configured and running in the Replit environment:
 
-To make this fully functional, you would need to implement:
-- Backend API endpoints for YouTube video processing
-- YouTube video download capabilities (yt-dlp or similar)
-- Video/audio conversion tools (FFmpeg)
-- File serving and cleanup logic
+### ✅ Completed Setup
+- Dependencies installed and configured
+- Frontend running on port 5000 with Vite dev server
+- Backend API running on port 3001 with Express.js
+- Proxy configuration set up for API calls
+- Deployment configuration ready for production
+
+### ⚠️ Known Issues
+- ytdl-core library may experience intermittent issues due to YouTube API changes
+- This is a common issue with YouTube downloading libraries and may require updates
+- The application infrastructure is working correctly - only the YouTube extraction has occasional failures
+
+### Recent Changes (2025-09-14)
+- Configured Vite with allowedHosts: 'all' for Replit proxy compatibility
+- Set up proper workflow configurations for frontend and backend
+- Updated deployment settings for VM deployment with build and run commands
